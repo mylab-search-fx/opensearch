@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="IntegrationTests/IntegrationTests.csproj" Id="ad713424-adfc-4cb9-b20c-9218c9d4ded5" />
   <Project Path="MyLab.OpenSearch/MyLab.OpenSearch.csproj" />
   <Project Path="UnitTests/UnitTests.csproj" Id="2f7b7402-ad14-4ed1-a4ca-9bdc396cfd4d" />
 </Solution>
