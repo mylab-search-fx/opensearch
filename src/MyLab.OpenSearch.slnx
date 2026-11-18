@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="MyLab.OpenSearch/MyLab.OpenSearch.csproj" />
+  <Project Path="UnitTests/UnitTests.csproj" Id="2f7b7402-ad14-4ed1-a4ca-9bdc396cfd4d" />
 </Solution>

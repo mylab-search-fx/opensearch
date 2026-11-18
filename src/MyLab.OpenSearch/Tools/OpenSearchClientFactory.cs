@@ -24,6 +24,7 @@ namespace MyLab.OpenSearch.Tools
             catch (Exception e)
             {
                 log?.Error(e).Write();
+                throw;
             }
         }
     }
