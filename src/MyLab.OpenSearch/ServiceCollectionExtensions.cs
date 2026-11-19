@@ -18,9 +18,9 @@ namespace Microsoft.Extensions.DependencyInjection
             public IServiceCollection ConfigureOpenSearch(IConfiguration config,
                 string sectionName = OpenSearchOptions.SectionName)
             {
-                if (services == null) throw new ArgumentNullException(nameof(services));
-                if (config == null) throw new ArgumentNullException(nameof(config));
-                if (sectionName == null) throw new ArgumentNullException(nameof(sectionName));
+                ArgumentNullException.ThrowIfNull(services);
+                ArgumentNullException.ThrowIfNull(config);
+                ArgumentNullException.ThrowIfNull(sectionName);
 
                 return services.Configure<OpenSearchOptions>(config.GetSection(sectionName));
             }
