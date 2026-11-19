@@ -2,56 +2,68 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Xunit.Abstractions;
 
-namespace IntegrationTests.HealthCheck
+namespace IntegrationTests.HealthCheck;
+
+[Collection(OpenSearchCollection.Name)]
+public class OpenSearchHealthCheckBehavior(ITestOutputHelper output, GlobalTestFixture fxt)
 {
-    public class OpenSearchHealthCheckBehavior(ITestOutputHelper output)
+    [Fact]
+    public async Task ShouldBeHealthyWhenSingleHostIsConnected()
     {
-        [Fact]
-        public async Task ShouldBeHealthyWhenSingleHostIsConnected()
+        // Arrange
+        await using var serviceProvider = TestTools.CreateApp(output, o =>
         {
-            // Arrange
-            await using var serviceProvider = TestTools.CreateApp(output, TestTools.ConfigureConnectedHost);
-            var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
+            TestTools.ConfigureConnectedHost(o);
+            o.ApiKeyAuth = fxt.ApiKey;
+        });
+        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
 
-            // Act
-            var report = await healthCheckService.CheckHealthAsync();
+        // Act
+        var report = await healthCheckService.CheckHealthAsync();
 
-            var status = report.Entries["opensearch"].Status;
+        var status = report.Entries["opensearch"].Status;
 
-            // Assert
-            Assert.Equal(HealthStatus.Healthy, status);
-        }
+        // Assert
+        Assert.Equal(HealthStatus.Healthy, status);
+    }
 
-        [Fact]
-        public async Task ShouldBeUnhealthyWhenSingleHostIsNotConnected()
+    [Fact]
+    public async Task ShouldBeUnhealthyWhenSingleHostIsNotConnected()
+    {
+        // Arrange
+        await using var serviceProvider = TestTools.CreateApp(output, o =>
         {
-            // Arrange
-            await using var serviceProvider = TestTools.CreateApp(output, TestTools.ConfigureDisconnectedHost);
-            var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
+            TestTools.ConfigureDisconnectedHost(o);
+            o.ApiKeyAuth = fxt.ApiKey;
+        });
+        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
 
-            // Act
-            var report = await healthCheckService.CheckHealthAsync();
+        // Act
+        var report = await healthCheckService.CheckHealthAsync();
 
-            var status = report.Entries["opensearch"].Status;
+        var status = report.Entries["opensearch"].Status;
 
-            // Assert
-            Assert.Equal(HealthStatus.Unhealthy, status);
-        }
+        // Assert
+        Assert.Equal(HealthStatus.Unhealthy, status);
+    }
 
-        [Fact]
-        public async Task ShouldBeDegradedWhenOnlyPartOfHostPoolIsConnected()
+    [Fact]
+    public async Task ShouldBeDegradedWhenOnlyPartOfHostPoolIsConnected()
+    {
+        // Arrange
+        await using var serviceProvider = TestTools.CreateApp(output, o =>
         {
-            // Arrange
-            await using var serviceProvider = TestTools.CreateApp(output, TestTools.ConfigureMixedHostPool);
-            var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
+            TestTools.ConfigureMixedHostPool(o);
+            o.ApiKeyAuth = fxt.ApiKey;
+        });
+        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
 
-            // Act
-            var report = await healthCheckService.CheckHealthAsync();
+        // Act
+        var report = await healthCheckService.CheckHealthAsync();
 
-            var status = report.Entries["opensearch"].Status;
+        var status = report.Entries["opensearch"].Status;
 
-            // Assert
-            Assert.Equal(HealthStatus.Degraded, status);
-        }
+        // Assert
+        Assert.Equal(HealthStatus.Degraded, status);
     }
 }

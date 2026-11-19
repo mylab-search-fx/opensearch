@@ -1,13 +1,13 @@
 services:
 
   opensearch:
-    image: opensearchproject/opensearch:3.4.0
+    image: opensearchproject/opensearch:3.7.0
     container_name: opensearch
     environment:
       discovery.type: single-node
       node.name: opensearch
-      DISABLE_SECURITY_PLUGIN: "true"
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ",w^&i!.m6A"
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     ports:

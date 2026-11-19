@@ -1,8 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using MyLab.Log;
 using MyLab.Log.XUnit;
-using MyLab.OpenSearch.HealthCheck;
 using MyLab.OpenSearch.Options;
 using Xunit.Abstractions;
 
@@ -12,34 +10,38 @@ namespace IntegrationTests
     {
         public static Action<OpenSearchOptions> ConfigureConnectedHost => options =>
         {
-            options.Host = "http://localhost:19200";
+            options.Host = "https://localhost:19200";
+            
         };
 
         public static Action<OpenSearchOptions> ConfigureDisconnectedHost => options =>
         {
-            options.Host = "http://localhost:19201";
+            options.Host = "https://localhost:19201";
         };
 
         public static Action<OpenSearchOptions> ConfigureMixedHostPool => options =>
         {
             options.HostPool =
             [
-                "http://localhost:19200",
-                "http://localhost:19201"
+                "https://localhost:19200",
+                "https://localhost:19201"
             ];
         };
 
-        public static ServiceProvider CreateApp(ITestOutputHelper output, Action<OpenSearchOptions> configureOpenSearch)
+        public static ServiceProvider CreateApp(ITestOutputHelper? output, Action<OpenSearchOptions> configureOpenSearch)
         {
             var services = new ServiceCollection();
 
             services
-                .AddLogging(c => c
-                    .AddMyLabConsole()
-                    .AddXUnit(output)
-                )
+                .AddLogging(c =>
+                {
+                    c.AddMyLabConsole();
+                    if (output != null)
+                        c.AddXUnit(output);
+                })
                 .AddOpenSearch()
-                .ConfigureOpenSearch(configureOpenSearch);
+                .ConfigureOpenSearch(configureOpenSearch)
+                .ConfigureOpenSearch(o => o.IgnoreServerSslCertificate = true);
 
             services
                 .AddHealthChecks()

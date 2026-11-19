@@ -1,0 +1,5 @@
+HEAD /?pretty=true&error_trace=true
+Authorization: {{adminauth}}
+
+GET /_cluster/health
+Authorization: {{auth}}

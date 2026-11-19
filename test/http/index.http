@@ -1,0 +1,2 @@
+GET /_list/indices
+Authorization: {{adminauth}}
