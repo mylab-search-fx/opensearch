@@ -117,3 +117,5 @@ public class OrderSearch(IOpenSearchClient client)
 ```csharp
 services.AddHealthChecks().AddOpenSearch();
 ```
+
+Для успешной работы проверки работоспособности, пользователь должен обладать правом `cluster:monitor/main`.
