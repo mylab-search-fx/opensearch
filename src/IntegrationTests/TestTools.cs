@@ -14,6 +14,18 @@ namespace IntegrationTests
             Password = ",w^&i!.m6A"
         };
 
+        public static readonly OpenSearchBasicAuthentication MonitorBasicAuth = new()
+        {
+            User = "monitor",
+            Password = ",w^&i!.m6A"
+        };
+
+        public static readonly OpenSearchBasicAuthentication NoRightsBasicAuth = new()
+        {
+            User = "no-rights",
+            Password = ",w^&i!.m6A"
+        };
+
         public static Action<OpenSearchOptions> ConfigureConnectedHost => options =>
         {
             options.Host = "https://localhost:19200";

@@ -10,7 +10,7 @@ using Xunit.Abstractions;
 namespace IntegrationTests.HealthCheck;
 
 [Collection(OpenSearchCollection.Name)]
-public class PingNodeTouchBehavior(ITestOutputHelper output, GlobalTestFixture fxt)
+public class PingNodeTouchBehavior(ITestOutputHelper output)
 {
     [Fact]
     public async Task ShouldConnectionErrorWhenNodeUnavailable()
@@ -37,7 +37,7 @@ public class PingNodeTouchBehavior(ITestOutputHelper output, GlobalTestFixture f
         var sp = TestTools.CreateApp(output, o =>
         {
             TestTools.ConfigureConnectedHost(o);
-            o.BasicAuth = TestTools.AdminBasicAuth;
+            o.BasicAuth = TestTools.MonitorBasicAuth;
         });
         var c = sp.GetRequiredService<IOpenSearchClient>();
         var node = c.ConnectionSettings.ConnectionPool.Nodes.First();
@@ -59,7 +59,7 @@ public class PingNodeTouchBehavior(ITestOutputHelper output, GlobalTestFixture f
         var sp = TestTools.CreateApp(output, o =>
         {
             TestTools.ConfigureConnectedHost(o);
-            o.ApiKeyAuth = fxt.ApiKey;
+            o.BasicAuth = TestTools.NoRightsBasicAuth;
         });
         var c = sp.GetRequiredService<IOpenSearchClient>();
         var node = c.ConnectionSettings.ConnectionPool.Nodes.First();

@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 namespace IntegrationTests.HealthCheck;
 
 [Collection(OpenSearchCollection.Name)]
-public class OpenSearchHealthCheckBehavior(ITestOutputHelper output, GlobalTestFixture fxt)
+public class OpenSearchHealthCheckBehavior(ITestOutputHelper output)
 {
     [Fact]
     public async Task ShouldBeHealthyWhenSingleHostIsConnected()
@@ -14,7 +14,7 @@ public class OpenSearchHealthCheckBehavior(ITestOutputHelper output, GlobalTestF
         await using var serviceProvider = TestTools.CreateApp(output, o =>
         {
             TestTools.ConfigureConnectedHost(o);
-            o.ApiKeyAuth = fxt.ApiKey;
+            o.BasicAuth = TestTools.MonitorBasicAuth;
         });
         var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
 
@@ -34,7 +34,7 @@ public class OpenSearchHealthCheckBehavior(ITestOutputHelper output, GlobalTestF
         await using var serviceProvider = TestTools.CreateApp(output, o =>
         {
             TestTools.ConfigureDisconnectedHost(o);
-            o.ApiKeyAuth = fxt.ApiKey;
+            o.BasicAuth = TestTools.MonitorBasicAuth;
         });
         var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
 
@@ -54,7 +54,7 @@ public class OpenSearchHealthCheckBehavior(ITestOutputHelper output, GlobalTestF
         await using var serviceProvider = TestTools.CreateApp(output, o =>
         {
             TestTools.ConfigureMixedHostPool(o);
-            o.ApiKeyAuth = fxt.ApiKey;
+            o.BasicAuth = TestTools.MonitorBasicAuth;
         });
         var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
 

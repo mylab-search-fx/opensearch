@@ -1,0 +1,8 @@
+GET /_plugins/_security/api/apitokens
+Authorization: {{adminauth}}
+
+GET /_plugins/_security/authinfo
+Authorization: Bearer os_1wkYQd0NM8T7bH0rahbHdSJVPIZx7U5TEKufbcxsL7w
+
+GET /_plugins/_security/api/roles
+Authorization: {{adminauth}}

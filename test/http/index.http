@@ -1,2 +1,5 @@
 GET /_list/indices
 Authorization: {{adminauth}}
+
+PUT /health-check
+Authorization: {{adminauth}}

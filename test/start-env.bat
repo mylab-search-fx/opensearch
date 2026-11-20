@@ -1,1 +1,1 @@
-docker compose -p mylab-serach-indexer-test up -d
+docker compose -p mylab-opensearch-test up -d
