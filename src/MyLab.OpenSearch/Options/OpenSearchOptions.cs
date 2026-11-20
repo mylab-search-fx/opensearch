@@ -13,8 +13,6 @@ public class OpenSearchOptions
     public OpenSearchBasicAuthentication? BasicAuth { get; set; }
 
     public bool IgnoreServerSslCertificate { get; set; }
-
-    public string? HealthCheckIndex { get; set; }
 }
 
 public class OpenSearchBasicAuthentication

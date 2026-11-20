@@ -1,42 +1,63 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MyLab.Log.Dsl;
 using MyLab.OpenSearch.Options;
+using MyLab.OpenSearch.Tools;
 using OpenSearch.Client;
 using OpenSearch.Net;
-using System.Xml.Linq;
 
 namespace MyLab.OpenSearch.HealthCheck;
 
-class OpenSearchHealthCheck(IOpenSearchClient client, IOptions<OpenSearchOptions> opts) : IHealthCheck
+class OpenSearchHealthCheck
+    (
+        IOpenSearchClient client, 
+        IOptions<OpenSearchOptions> opts, 
+        ILogger<OpenSearchHealthCheck>? logger = null
+    ) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
         var nodes = client.ConnectionSettings.ConnectionPool.Nodes.ToArray();
-        var pingResults = await PingNodesAsync(nodes, cancellationToken);
-        var availableCount = pingResults.Count(available => available);
+        
+        var touchedNodes = await PingNodesAsync(nodes, cancellationToken);
+        
+        var noProblemCount = touchedNodes.Count(n => n.Result == NodeTouchResult.Ok);
 
-        if (availableCount == 0)
+        if (noProblemCount == 0)
             return HealthCheckResult.Unhealthy("OpenSearch connection is not established");
 
-        if (availableCount == pingResults.Length)
-            return HealthCheckResult.Healthy("OpenSearch connection established");
+        var details = touchedNodes.ToDictionary(
+            n => n.Node.Uri.ToString(),
+            n => (object)(Enum.GetName(n.Result) ?? string.Empty)
+        );
+
+        if (noProblemCount == touchedNodes.Length)
+            return HealthCheckResult.Healthy("OpenSearch connection established", details);
 
         return HealthCheckResult.Degraded(
-            $"OpenSearch connection degraded: {availableCount}/{pingResults.Length}");
-    }
+            $"OpenSearch connection degraded: {noProblemCount}/{touchedNodes.Length}", 
+            null,
+            details);
+    }    
 
-    async Task<bool[]> PingNodesAsync(Node[] nodes, CancellationToken cancellationToken)
+    async Task<TouchedNode[]> PingNodesAsync(Node[] nodes, CancellationToken cancellationToken)
     {
         var pingTasks = nodes.Select(node => PingNodeAsync(node, cancellationToken));
         var pingResults = await Task.WhenAll(pingTasks);
         return pingResults;
     }
 
-    async Task<bool> PingNodeAsync(Node node, CancellationToken cancellationToken)
+    Task<TouchedNode> PingNodeAsync(Node node, CancellationToken cancellationToken)
+        => CreateNodeTouch(node).TouchAsync(cancellationToken);
+
+    INodeTouch CreateNodeTouch(Node node)
     {
-        throw new NotImplementedException();
+        return opts.Value.ApiKeyAuth != null
+            ? new IndexNodeTouch(node, opts.Value, logger?.Dsl())
+            : new PingNodeTouch(node, client, logger?.Dsl());
     }
 }
 
@@ -45,46 +66,154 @@ enum NodeTouchResult
     Undefined,
     Ok,
     ConnectionError,
-    RightsNotEnough
+    RightsNotEnough,
+    AnotherProblem
 }
+
+record TouchedNode(Node Node, NodeTouchResult Result);
 
 interface INodeTouch
 {
-    Task<NodeTouchResult> TouchAsync(CancellationToken ct);
+    Task<TouchedNode> TouchAsync(CancellationToken ct);
 }
 
-class PingNodeTouch(Node node, IOpenSearchClient client) : INodeTouch
+class PingNodeTouch(Node node, IOpenSearchClient client, IDslLogger? log = null) : INodeTouch
 {
-    public async Task<NodeTouchResult> TouchAsync(CancellationToken ct)
+    public async Task<TouchedNode> TouchAsync(CancellationToken ct)
     {
+        var res = await TouchAsyncCore(ct);
+        return new TouchedNode(node, res);
+    }
+
+    async Task<NodeTouchResult> TouchAsyncCore(CancellationToken ct)
+    {
+        var request = new PingRequest
+        {
+            RequestConfiguration = new RequestConfiguration
+            {
+                ForceNode = node.Uri,
+                DisablePing = true,
+                MaxRetries = 0,
+                RequestTimeout = TimeSpan.FromSeconds(5)
+            }
+        };
+
+        PingResponse response;
+
         try
         {
-            var request = new PingRequest
-            {
-                RequestConfiguration = new RequestConfiguration
-                {
-                    ForceNode = node.Uri,
-                    DisablePing = true,
-                    MaxRetries = 0,
-                    RequestTimeout = TimeSpan.FromSeconds(5)
-                }
-            };
-
-            var response = await client.PingAsync(request, ct);
-
-            return NodeTouchResult.Ok;
+            response = await client.PingAsync(request, ct);
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            return NodeTouchResult.Ok;
+            log?.Error("HealthCheck unexpected check error: ping exception", e)
+                .AndFactIs("node-url", node.Uri)
+                .Write();
+
+            return NodeTouchResult.AnotherProblem;
         }
+
+        if (response.IsValid)
+            return NodeTouchResult.Ok;
+
+        var connectionError = response.OriginalException is HttpRequestException
+        {
+            HttpRequestError: HttpRequestError.ConnectionError
+        };
+
+        if (connectionError)
+            return NodeTouchResult.ConnectionError;
+
+        if (response.ApiCall.HttpStatusCode == 401)
+            return NodeTouchResult.RightsNotEnough;
+
+        log?.Error("HealthCheck unexpected check error: unexpected response", response.OriginalException)
+            .AndFactIs("node-url", node.Uri)
+            .AndFactIs("debug", response.DebugInformation)
+            .Write();
+
+        return NodeTouchResult.AnotherProblem;
     }
 }
 
-class IndexNodeTouch(IOpenSearchClient client) : INodeTouch
+class IndexNodeTouch(
+    Node node,
+    OpenSearchOptions opts,
+    Func<IOpenSearchClient, CancellationToken, Task<ISearchResponse<object>>> search,
+    IDslLogger? log = null)
+    : INodeTouch
 {
-    public Task<NodeTouchResult> TouchAsync(CancellationToken ct)
+
+    public IndexNodeTouch(Node node, OpenSearchOptions opts, IDslLogger? log = null)
+        :this(node, opts, SearchCore, log)
     {
-        throw new NotImplementedException();
+        
     }
+
+    public async Task<TouchedNode> TouchAsync(CancellationToken ct)
+    {
+        var res = await TouchAsyncCore(ct);
+        return new TouchedNode(node, res);
+    }
+
+    async Task<NodeTouchResult> TouchAsyncCore(CancellationToken ct)
+    {
+        var tmpOpts = new OpenSearchOptions
+        {
+            Host = node.Uri.ToString(),
+            ApiKeyAuth = opts.ApiKeyAuth,
+            BasicAuth = opts.BasicAuth
+        };
+
+        var tmpPool = ConnectionPoolFactory.Create(tmpOpts);
+        var settings = OpenSearchClientFactory.CreateSettings(opts, tmpPool);
+        var client = new OpenSearchClient(settings);
+
+        ISearchResponse<object> response;
+
+        try
+        {
+            response = await search(client, ct);
+        }
+        catch (Exception e)
+        {
+            log?.Error("HealthCheck unexpected check error: request error", e)
+                .AndFactIs("node-url", node.Uri)
+                .Write();
+
+            return NodeTouchResult.AnotherProblem;
+        }
+
+        var connectionError = response.OriginalException is HttpRequestException
+        {
+            HttpRequestError: HttpRequestError.ConnectionError
+        };
+
+        if (connectionError)
+            return NodeTouchResult.ConnectionError;
+
+        if (response.ApiCall.HttpStatusCode == 404)
+            return NodeTouchResult.Ok;
+
+        if (response.ApiCall.HttpStatusCode == 401)
+            return NodeTouchResult.RightsNotEnough;
+
+        log?.Error("HealthCheck unexpected check error: unexpected response", response.OriginalException)
+            .AndFactIs("node-url", node.Uri)
+            .AndFactIs("debug", response.DebugInformation)
+            .Write();
+
+        return NodeTouchResult.AnotherProblem;
+    }
+
+    static Task<ISearchResponse<object>> SearchCore(
+        IOpenSearchClient client,
+        CancellationToken ct)
+    => client.SearchAsync<object>(s => s
+            .Index(Guid.NewGuid().ToString("N"))
+            .Size(0)               // Не тянем сами документы (экономим сеть и память)
+            .TrackTotalHits(false) // Не тратим CPU на точный подсчет всех документов
+            .Preference("_local")  // Заставляем ноду искать только в своих локальных шардах
+            .Query(q => q.MatchAll()),
+        ct);
 }

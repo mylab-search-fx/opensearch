@@ -8,6 +8,12 @@ namespace IntegrationTests
 {
     static class TestTools
     {
+        public static readonly OpenSearchBasicAuthentication AdminBasicAuth = new()
+        {
+            User = "admin",
+            Password = ",w^&i!.m6A"
+        };
+
         public static Action<OpenSearchOptions> ConfigureConnectedHost => options =>
         {
             options.Host = "https://localhost:19200";

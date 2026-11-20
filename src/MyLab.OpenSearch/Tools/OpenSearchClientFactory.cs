@@ -19,7 +19,8 @@ static class OpenSearchClientFactory
 
         try
         {
-            var settings = CreateSettings(opts.Value);
+            var connectionPool = ConnectionPoolFactory.Create(opts.Value);
+            var settings = CreateSettings(opts.Value, connectionPool);
             return new OpenSearchClient(settings);
         }
         catch (Exception e)
@@ -29,9 +30,8 @@ static class OpenSearchClientFactory
         }
     }
 
-    static ConnectionSettings CreateSettings(OpenSearchOptions opts)
+    public static ConnectionSettings CreateSettings(OpenSearchOptions opts, IConnectionPool pool)
     {
-        var pool = ConnectionPoolFactory.Create(opts);
         var s = new ConnectionSettings(pool);
 
         if (opts is { ApiKeyAuth: not null, BasicAuth: not null })
@@ -44,9 +44,6 @@ static class OpenSearchClientFactory
             var gHeaders = new NameValueCollection { { "Authorization", $"ApiKey {opts.ApiKeyAuth.Token}" } };
 
             s = s.GlobalHeaders(gHeaders);
-            //s = opts.ApiKeyAuth.IsValid() 
-            //    ? s.ApiKeyAuthentication(opts.ApiKeyAuth.Id, opts.ApiKeyAuth.Token)
-            //    : throw new InvalidOperationException($"{nameof(opts.ApiKeyAuth)} is invalid");
         }
 
         if (opts.BasicAuth != null)
