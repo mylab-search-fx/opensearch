@@ -34,18 +34,6 @@ static class OpenSearchClientFactory
     {
         var s = new ConnectionSettings(pool);
 
-        if (opts is { ApiKeyAuth: not null, BasicAuth: not null })
-        {
-            throw new InvalidOperationException("The ApiKeyAuth and BasicAuth are mutually exclusive");
-        }
-        
-        if (opts.ApiKeyAuth != null)
-        {
-            var gHeaders = new NameValueCollection { { "Authorization", $"ApiKey {opts.ApiKeyAuth.Token}" } };
-
-            s = s.GlobalHeaders(gHeaders);
-        }
-
         if (opts.BasicAuth != null)
         {
             s = opts.BasicAuth.IsValid() ?
@@ -57,11 +45,6 @@ static class OpenSearchClientFactory
         {
             s = s.ServerCertificateValidationCallback((_, _, _, _) => true);
         }
-
-        s = s.EnableDebugMode(cd =>
-        {
-
-        });
 
         return s;
     }
