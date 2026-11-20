@@ -1,0 +1,1 @@
+pubnuget.ps1 $args[0] "..\src\MyLab.OpenSearch\MyLab.OpenSearch.csproj" -BuildOnly
